@@ -11,11 +11,22 @@ pub struct Schema {
 
 /// Table information.
 #[derive(Debug)]
+pub struct TableColumn {
+    pub column: String,
+    pub data_type: String,
+    pub index: i32,
+    pub default: Option<String>,
+    pub nullable: String,
+    pub max_chars: Option<i32>,
+}
+
+/// Table information.
+#[derive(Debug)]
 pub struct Table {
     /// Table name.
     pub name: String,
     /// List of fields.
-    pub fields: Vec<Field>,
+    pub fields: Vec<TableColumn>,
 }
 
 /// Row description.

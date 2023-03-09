@@ -29,10 +29,31 @@ enum DrawerType {
 struct Opts {
     #[structopt(long, default_value = "postgresql")]
     loader: LoaderType,
-    #[structopt(long, default_value = "dot")]
-    drawer: DrawerType,
+    //#[structopt(long, default_value = "dot")]
+    //drawer: DrawerType,
     #[structopt(flatten)]
     pg_opts: PgOpts,
+
+    #[structopt(short)]
+    include_tables: Option<Vec<String>>,
+
+    #[structopt(short)]
+    exclude_tables: Option<Vec<String>>,
+
+    #[structopt(long)]
+    title: Option<String>,
+
+    #[structopt(long, default_value = "t")]
+    title_loc: String,
+
+    #[structopt(long, default_value = "30")]
+    title_size: u32,
+
+    #[structopt(long, default_value = "Blue")]
+    title_color: String,
+
+    #[structopt(long, default_value = "LR")]
+    direction: String,
 }
 
 #[derive(Debug, StructOpt)]
@@ -59,8 +80,13 @@ struct PgOpts {
         required_if("pg_opts", "postgresql")
     )]
     password: String,
-    #[structopt(short, long, required_if("pg_opts", "postgresql"))]
-    database: Option<String>,
+    #[structopt(
+        short,
+        long,
+        default_value = "postgres",
+        required_if("pg_opts", "postgresql")
+    )]
+    database: String,
     #[structopt(
         short,
         long,
@@ -79,7 +105,7 @@ fn main() -> Result<()> {
 
             let config = postgresql::Config {
                 hostname: pg_opts.hostname,
-                database: pg_opts.database.unwrap(),
+                database: pg_opts.database,
                 username: pg_opts.username,
                 password: pg_opts.password,
                 schema: pg_opts.schema,
@@ -92,6 +118,16 @@ fn main() -> Result<()> {
     let drawer = Dot;
     let schema = loader.load()?;
     let mut buf = stdout();
-    drawer.write(&schema, &mut buf)?;
+    drawer.write(
+        &schema,
+        &mut buf,
+        opts.include_tables,
+        opts.exclude_tables,
+        opts.title,
+        &opts.title_loc,
+        opts.title_size,
+        &opts.title_color,
+        &opts.direction,
+    )?;
     Ok(())
 }

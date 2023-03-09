@@ -1,7 +1,7 @@
 //! Loader for postgresql.
 
 use crate::loader::Loader;
-use crate::schema::{Field, Relation, Schema, Table};
+use crate::schema::{Field, Relation, Schema, Table, TableColumn};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -55,13 +55,14 @@ impl Loader for Conn {
             .group_by(|row| row.get(0))
             .into_iter()
             .map(|(name, rows)| {
-                let fields: Vec<_> = rows
+                let mut fields: Vec<_> = rows
                     .into_iter()
                     .map(|row| {
-                        let field: Field = row.try_into().unwrap();
+                        let field: TableColumn = row.try_into().unwrap();
                         field
                     })
                     .collect();
+                fields.sort_by_key(|f| f.index );
 
                 Table { name, fields }
             })
@@ -75,7 +76,7 @@ impl Loader for Conn {
             })
             .collect();
 
-        Ok(Schema { relations, tables })
+        Ok(Schema { tables, relations })
     }
 }
 
@@ -99,6 +100,22 @@ impl TryFrom<Row> for Relation {
     }
 }
 
+impl TryFrom<Row> for TableColumn {
+    type Error = String;
+
+    fn try_from(row: Row) -> std::result::Result<Self, String> {
+        Ok(Self {
+            column: row.get(1),
+            data_type: row.get(2),
+            index: row.get(3),
+            default: row.get(4),
+            nullable: row.get(5),
+            max_chars: row.get(6),
+        })
+    }
+}
+
+
 impl TryFrom<Row> for Field {
     type Error = String;
 
@@ -118,14 +135,14 @@ impl TryFrom<Row> for Field {
 }
 
 fn fetch_field(map: &HashMap<String, String>, key: &str) -> std::result::Result<String, String> {
-    map.get(key)
-        .map(|s| s.clone())
-        .ok_or(format!("could not find field {}", key))
+    map.get(key).cloned()
+        .ok_or(format!("could not find field {key}"))
 }
 
+//
 fn tables_query() -> &'static str {
     "
-    select table_name, column_name, data_type
+    select table_name, column_name, data_type, ordinal_position, column_default, is_nullable, character_maximum_length
       from information_schema.columns
      where table_schema = $1
      order by table_name, column_name
