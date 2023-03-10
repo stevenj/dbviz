@@ -1,7 +1,8 @@
 //! Core entities.
+use serde::{Deserialize, Serialize};
 
 /// All the schema information.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Schema {
     /// List of tables in the database.
     pub tables: Vec<Table>,
@@ -10,7 +11,7 @@ pub struct Schema {
 }
 
 /// Table information.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableColumn {
     pub column: String,
     pub data_type: String,
@@ -18,23 +19,27 @@ pub struct TableColumn {
     pub default: Option<String>,
     pub nullable: String,
     pub max_chars: Option<i32>,
+    pub description: Option<String>,
+    pub table_description: Option<String>, // Redundant but easiest way to get it.
 }
 
 /// Table information.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
     /// Table name.
     pub name: String,
+    /// Table Description
+    pub description: Option<String>,
     /// List of fields.
     pub fields: Vec<TableColumn>,
 }
 
 /// Row description.
-#[derive(Debug)]
-pub struct Field(pub FieldName, pub FieldType);
+//#[derive(Debug)]
+//pub struct Field(pub FieldName, pub FieldType);
 
 /// Relation node.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Relation {
     /// Table that the constraint references.
     pub on_table: TableName,
@@ -48,4 +53,4 @@ pub struct Relation {
 
 pub type TableName = String;
 pub type FieldName = String;
-pub type FieldType = String;
+//pub type FieldType = String;

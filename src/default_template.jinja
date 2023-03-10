@@ -1,0 +1,150 @@
+{%- macro data_type(data_type, default, max_chars, nullable) -%}
+
+    {%- if nullable == "YES" -%}
+    <i>
+    {%- endif -%}
+
+    {%- if data_type == "character varying" -%}
+    varchar
+    {%- elif data_type == "timestamp without time zone" -%}
+    timestamp
+    {%- else -%}
+    {{- data_type -}}
+    {%- endif -%}
+
+    {%- if max_chars is not none -%}
+    ({{max_chars}})
+    {%- endif -%}
+
+    {%- if default is startingwith("nextval") -%}
+    +
+    {%- endif -%}
+
+    {%- if nullable == "YES" -%}
+    </i>
+    {%- endif -%}
+
+{%- endmacro -%}
+
+digraph erd {
+
+    {% if opts.title is not none %}
+    label = "{{ opts.title }}"
+    labelloc = t
+    fontsize = 30
+    fontcolor = Blue
+    {% endif %}
+
+    graph [
+        rankdir = "LR"
+    ];
+
+    node [
+        fontsize = "16"
+        shape = "plaintext"
+    ];
+
+    edge [
+    ];
+
+    {% for table in schema.tables %}
+        {% if opts.comments %}
+
+    "{{table.name}}" [shape=plain label=<
+        <table border='0' cellborder='1' cellspacing='0' >
+            <tr>
+                <td colspan='3' bgcolor='#009879' port='__title'>
+                    <font color='white' face='Courier bold italic' point-size='20'><b>{{table.name}}</b></font>
+                </td>
+            </tr>
+            <tr>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Column</b></font></td>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Description</b></font></td>
+            </tr>
+
+            {% for field in table.fields %}
+            <tr>
+                <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
+                <td><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
+                <td align='text'><font color='grey50' face='Monospace' point-size='14'><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+            </tr>
+            {% endfor %}
+
+            {% if table.description is not none %}
+            <tr>
+                <td colspan='3' bgcolor="grey20" align='text'><font color='white' face='Monospace' point-size='14'><i>{{- table.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+            </tr>
+            {% endif %}
+
+        </table>
+    >];
+
+        {% else %}
+
+    "{{table.name}}" [label=<
+        <table border='0' cellborder='1' cellspacing='0'>
+            <tr>
+                <td colspan='2' bgcolor='#009879' port='__title'>
+                    <font color='white' face='Courier bold italic' point-size='20'><b>{{table.name}}</b></font>
+                </td>
+            </tr>
+            <tr>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Column</b></font></td>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
+            </tr>
+
+            {% for field in table.fields %}
+            <tr>
+                <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
+                <td><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
+            </tr>
+            {% endfor %}
+
+        </table>
+    >];
+
+        {% endif %}
+    {% endfor %}
+
+    "LEGEND" [label=<
+        <table border='0' cellborder='1' cellspacing='0'>
+            <tr>
+                <td colspan='2' bgcolor='Pink' port='__title'>
+                    <font color='white' face='Courier bold italic' point-size='20'><b>LEGEND</b></font>
+                </td>
+            </tr>
+            <tr>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
+                <td><font color='black' face='Courier bold' point-size='18'><b>Example</b></font></td>
+            </tr>
+
+            <tr>
+                <td align='text'><font>Standard Field</font><br align='left'/></td>
+                <td><font>{{ data_type("bytea", none, none, "NO") }}</font></td>
+            </tr>
+
+            <tr>
+                <td align='text'><font>Nullable Field</font><br align='left'/></td>
+                <td><font>{{ data_type("text", none, none, "YES") }}</font></td>
+            </tr>
+
+            <tr>
+                <td align='text'><font>Sized Field</font><br align='left'/></td>
+                <td><font>{{ data_type("varchar", none, 32, "NO") }}</font></td>
+            </tr>
+
+            <tr>
+                <td align='text'><font>Autoincrement Field</font><br align='left'/></td>
+                <td><font>{{ data_type("integer", "nextval", none, "NO") }}</font></td>
+            </tr>
+
+        </table>
+    >];
+
+    {% for relation in schema.relations %}
+    "{{relation.on_table}}":"{{relation.on_field}}" -> "{{relation.to_table}}":"{{relation.to_field}}"
+    {% endfor %}
+
+
+}

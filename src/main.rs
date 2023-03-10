@@ -1,133 +1,35 @@
-mod drawer;
-mod loader;
+mod opts;
+mod postgresql;
 mod schema;
 
-use crate::drawer::dot::Dot;
-use crate::drawer::Drawer;
-use crate::loader::{postgresql, Loader};
+use std::fs;
 
 use anyhow::Result;
-use structopt::clap::arg_enum;
-use structopt::StructOpt;
-
-use std::io::stdout;
-
-arg_enum! {
-#[derive(Debug)]
-enum LoaderType {
-    PostgreSQL,
-}}
-
-arg_enum! {
-#[derive(Debug)]
-enum DrawerType {
-    Dot,
-}}
-
-#[derive(Debug, StructOpt)]
-#[structopt(version = "1.0", author = "yunmikun <yunmikun2@protonmail.com>")]
-struct Opts {
-    #[structopt(long, default_value = "postgresql")]
-    loader: LoaderType,
-    //#[structopt(long, default_value = "dot")]
-    //drawer: DrawerType,
-    #[structopt(flatten)]
-    pg_opts: PgOpts,
-
-    #[structopt(short)]
-    include_tables: Option<Vec<String>>,
-
-    #[structopt(short)]
-    exclude_tables: Option<Vec<String>>,
-
-    #[structopt(long)]
-    title: Option<String>,
-
-    #[structopt(long, default_value = "t")]
-    title_loc: String,
-
-    #[structopt(long, default_value = "30")]
-    title_size: u32,
-
-    #[structopt(long, default_value = "Blue")]
-    title_color: String,
-
-    #[structopt(long, default_value = "LR")]
-    direction: String,
-}
-
-#[derive(Debug, StructOpt)]
-#[structopt(version = "1.0", author = "yunmikun <yunmikun2@protonmail.com>")]
-struct PgOpts {
-    #[structopt(
-        short,
-        long,
-        default_value = "localhost",
-        required_if("pg_opts", "postgresql")
-    )]
-    hostname: String,
-    #[structopt(
-        short,
-        long,
-        default_value = "postgres",
-        required_if("pg_opts", "postgresql")
-    )]
-    username: String,
-    #[structopt(
-        short,
-        long,
-        default_value = "postgres",
-        required_if("pg_opts", "postgresql")
-    )]
-    password: String,
-    #[structopt(
-        short,
-        long,
-        default_value = "postgres",
-        required_if("pg_opts", "postgresql")
-    )]
-    database: String,
-    #[structopt(
-        short,
-        long,
-        default_value = "public",
-        required_if("pg_opts", "postgresql")
-    )]
-    schema: String,
-}
+use minijinja::{context, Environment};
 
 fn main() -> Result<()> {
-    let opts = Opts::from_args();
+    let opts = opts::load();
 
-    let loader = match opts.loader {
-        LoaderType::PostgreSQL => {
-            let pg_opts = opts.pg_opts;
+    let loader = postgresql::Conn::new(&opts)?;
+    let schema = loader.load()?;
 
-            let config = postgresql::Config {
-                hostname: pg_opts.hostname,
-                database: pg_opts.database,
-                username: pg_opts.username,
-                password: pg_opts.password,
-                schema: pg_opts.schema,
-            };
-
-            postgresql::Conn::new(&config)?
-        }
+    let template_file = match &opts.template {
+        Some(fname) => fs::read_to_string(fname)?,
+        None => include_str!("default_template.jinja").to_string(),
     };
 
-    let drawer = Dot;
-    let schema = loader.load()?;
-    let mut buf = stdout();
-    drawer.write(
-        &schema,
-        &mut buf,
-        opts.include_tables,
-        opts.exclude_tables,
-        opts.title,
-        &opts.title_loc,
-        opts.title_size,
-        &opts.title_color,
-        &opts.direction,
-    )?;
+    let mut env = Environment::new();
+    env.add_template("diagram", &template_file)?;
+    let tmpl = env.get_template("diagram")?;
+
+    let ctx = context!(
+        opts => opts,
+        schema => schema
+    );
+
+    let rendered = tmpl.render(ctx)?;
+
+    println!("{rendered}");
+
     Ok(())
 }
