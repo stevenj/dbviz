@@ -67,7 +67,7 @@ digraph erd {
             <tr>
                 <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
                 <td><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
-                <td align='text'><font color='grey50' face='Monospace' point-size='14'><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+                <td port="{{field.column}}_out" align='text'><font color='grey50' face='Monospace' point-size='14'><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
             </tr>
             {% endfor %}
 
@@ -97,7 +97,7 @@ digraph erd {
             {% for field in table.fields %}
             <tr>
                 <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
-                <td><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
+                <td port="{{field.column}}_out"><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
             </tr>
             {% endfor %}
 
@@ -143,7 +143,7 @@ digraph erd {
     >];
 
     {% for relation in schema.relations %}
-    "{{relation.on_table}}":"{{relation.on_field}}" -> "{{relation.to_table}}":"{{relation.to_field}}"
+    "{{relation.on_table}}":"{{relation.on_field}}_out" -> "{{relation.to_table}}":"{{relation.to_field}}"
     {% endfor %}
 
 
