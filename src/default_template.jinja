@@ -1,3 +1,20 @@
+{%- macro theme(x) -%}
+{{ {
+    "title_loc"             : "t",
+    "title_size"            : 30,
+    "title_color"           : "blue",
+    "graph_direction"       : "LR",
+    "default_fontsize"      : 16,
+    "pkey_bgcolor"          : "seagreen1",
+    "field_desc"            : "color='grey50' face='Monospace' point-size='14'",
+    "column_heading"        : "color='black' face='Courier bold' point-size='18'",
+    "table_heading_bgcolor" : "#009879",
+    "table_heading"         : "color='white' face='Courier bold italic' point-size='20'",
+    "table_desc_bgcolor"    : "grey20",
+    "table_description"     : "color='white' face='Monospace' point-size='14'"
+}[x] }}
+{%- endmacro -%}
+
 {%- macro data_type(data_type, default, max_chars, nullable) -%}
 
     {%- if nullable == "YES" -%}
@@ -26,21 +43,47 @@
 
 {%- endmacro -%}
 
+{%- macro pkey_bgcolor(pkey) -%}
+    {%- if pkey -%}
+    bgcolor="{{ theme('pkey_bgcolor') }}"
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro column_name(field) -%}
+    <td port="{{field.column}}" {{ pkey_bgcolor(field.primary_key) }} align='text'><font>{{field.column}}</font><br align='left'/></td>
+{%- endmacro -%}
+
+{%- macro final(field, final=true) -%}
+    {%- if final -%}
+    port="{{field.column}}_out"
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro column_type(field, last=false) -%}
+    <td {{ final(field,last) }} {{ pkey_bgcolor(field.primary_key) }} ><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
+{%- endmacro -%}
+
+{%- macro column_description(field) -%}
+    <td {{ final(field,true) }} {{ pkey_bgcolor(field.primary_key) }} align='text'><font {{ theme("field_desc") }} ><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+{%- endmacro -%}
+
+
+
 digraph erd {
 
     {% if opts.title is not none %}
     label = "{{ opts.title }}"
-    labelloc = t
-    fontsize = 30
-    fontcolor = Blue
+    labelloc = {{ theme("title_loc") }}
+    fontsize = {{ theme("title_size") }}
+    fontcolor = {{ theme("title_color") }}
     {% endif %}
 
     graph [
-        rankdir = "LR"
+        rankdir = "{{theme('graph_direction')}}"
     ];
 
     node [
-        fontsize = "16"
+        fontsize = "{{theme('default_fontsize')}}"
         shape = "plaintext"
     ];
 
@@ -53,27 +96,27 @@ digraph erd {
     "{{table.name}}" [shape=plain label=<
         <table border='0' cellborder='1' cellspacing='0' >
             <tr>
-                <td colspan='3' bgcolor='#009879' port='__title'>
-                    <font color='white' face='Courier bold italic' point-size='20'><b>{{table.name}}</b></font>
+                <td colspan='3' bgcolor='{{theme("table_heading_bgcolor")}}' port='__title'>
+                    <font {{theme("table_heading")}}><b>{{table.name}}</b></font>
                 </td>
             </tr>
             <tr>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Column</b></font></td>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Description</b></font></td>
+                <td><font {{ theme("column_heading") }} ><b>Column</b></font></td>
+                <td><font {{ theme("column_heading") }} ><b>Type</b></font></td>
+                <td><font {{ theme("column_heading") }} ><b>Description</b></font></td>
             </tr>
 
             {% for field in table.fields %}
             <tr>
-                <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
-                <td><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
-                <td port="{{field.column}}_out" align='text'><font color='grey50' face='Monospace' point-size='14'><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+                {{ column_name(field) }}
+                {{ column_type(field, false) }}
+                {{ column_description(field) }}
             </tr>
             {% endfor %}
 
             {% if table.description is not none %}
             <tr>
-                <td colspan='3' bgcolor="grey20" align='text'><font color='white' face='Monospace' point-size='14'><i>{{- table.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
+                <td colspan='3' bgcolor="{{theme('table_desc_bgcolor')}}" align='text'><font {{theme("table_description")}}><i>{{- table.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
             </tr>
             {% endif %}
 
@@ -85,19 +128,19 @@ digraph erd {
     "{{table.name}}" [label=<
         <table border='0' cellborder='1' cellspacing='0'>
             <tr>
-                <td colspan='2' bgcolor='#009879' port='__title'>
-                    <font color='white' face='Courier bold italic' point-size='20'><b>{{table.name}}</b></font>
+                <td colspan='2' bgcolor='{{theme("table_heading_bgcolor")}}' port='__title'>
+                    <font {{theme("table_heading")}}><b>{{table.name}}</b></font>
                 </td>
             </tr>
             <tr>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Column</b></font></td>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
+                <td><font {{ theme("column_heading") }} ><b>Column</b></font></td>
+                <td><font {{ theme("column_heading") }} ><b>Type</b></font></td>
             </tr>
 
             {% for field in table.fields %}
             <tr>
-                <td port="{{field.column}}" align='text'><font>{{field.column}}</font><br align='left'/></td>
-                <td port="{{field.column}}_out"><font>{{ data_type(field.data_type, field.default, field.max_chars, field.nullable ) }}</font></td>
+                {{ column_name(field) }}
+                {{ column_type(field, true) }}
             </tr>
             {% endfor %}
 
@@ -115,9 +158,15 @@ digraph erd {
                 </td>
             </tr>
             <tr>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Type</b></font></td>
-                <td><font color='black' face='Courier bold' point-size='18'><b>Example</b></font></td>
+                <td><font {{theme("table_heading")}}><b>Type</b></font></td>
+                <td><font {{theme("table_heading")}}><b>Example</b></font></td>
             </tr>
+
+            <tr>
+                <td align='text' bgcolor="seagreen1" ><font>Primary Key</font><br align='left'/></td>
+                <td  bgcolor="{{theme('pkey_bgcolor')}}" ><font>{{ data_type("integer", "nextval", none, "NO") }}</font></td>
+            </tr>
+
 
             <tr>
                 <td align='text'><font>Standard Field</font><br align='left'/></td>

@@ -1,7 +1,7 @@
 //! Loader for postgresql.
 
 use crate::opts;
-use crate::schema::{Relation, Schema, Table, TableColumn};
+use crate::schema::{Index, Relation, Schema, Table, TableColumn};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -19,6 +19,13 @@ pub struct Conn {
     schema: String,
     opts: opts::Opts,
 }
+
+fn is_primary_key(table: &str, column: &str, indexes: &Vec<Index>) -> bool {
+    indexes
+        .iter()
+        .any(|idx| idx.table == table && idx.fields.contains(&column.to_string()) && idx.primary)
+}
+
 
 impl Conn {
     // Make a new postgres connection
@@ -59,6 +66,19 @@ impl Conn {
         let mut client = self.pg_client.borrow_mut();
         let tables_rows = client.query(tables_query(), &[&self.schema])?;
         let relations_rows = client.query(relations_query(), &[&self.schema])?;
+        let index_rows = client.query(index_query(), &[])?;
+
+        let indexes: Vec<_> = index_rows
+            .into_iter()
+            .filter(|row| {
+                let row_name: String = row.get(0);
+                self.include_table(&row_name) && !self.exclude_table(&row_name)
+            })
+            .map(|row| {
+                let idx: Index = row.try_into().unwrap();
+                idx
+            })
+            .collect();
 
         let tables: Vec<_> = tables_rows
             .into_iter()
@@ -70,6 +90,8 @@ impl Conn {
                     .into_iter()
                     .map(|row| {
                         let mut field: TableColumn = row.try_into().unwrap();
+                        field.primary_key = is_primary_key( &name, &field.column, &indexes);
+
                         let desc = match field.description {
                             Some(desc) => match self.opts.column_description_wrap {
                                 Some(wrap) => Some(textwrap::fill(&desc, wrap)),
@@ -95,6 +117,7 @@ impl Conn {
                     name,
                     description: desc,
                     fields,
+                    full: true,
                 }
             })
             .collect();
@@ -114,6 +137,30 @@ impl Conn {
             .collect();
 
         Ok(Schema { tables, relations })
+    }
+}
+
+impl TryFrom<Row> for Index {
+    type Error = String;
+
+    fn try_from(row: Row) -> std::result::Result<Self, String> {
+        let all_fields: String = row.get(4);
+        let braces: &[_] = &['{', '}'];
+
+        let fields: Vec<_> = all_fields
+            .trim_matches(braces)
+            .split(',')
+            .into_iter()
+            .map(std::string::ToString::to_string)
+            .collect();
+
+        Ok(Self {
+            table: row.get(0),
+            name: row.get(1),
+            primary: row.get(2),
+            unique: row.get(3),
+            fields,
+        })
     }
 }
 
@@ -150,6 +197,7 @@ impl TryFrom<Row> for TableColumn {
             max_chars: row.get(6),
             description: row.get(7),
             table_description: row.get(8),
+            primary_key: false,
         })
     }
 }
@@ -196,4 +244,30 @@ fn relations_query() -> &'static str {
       ) as fk
      where fk.schemaname = $1
     "
+}
+
+fn index_query() -> &'static str {
+    "
+SELECT
+    CAST(idx.indrelid::regclass as varchar) as table_name,
+    i.relname as index_name,
+    idx.indisprimary as primary_key,
+    idx.indisunique as unique,
+    CAST(
+        ARRAY(
+            SELECT pg_get_indexdef(idx.indexrelid, k + 1, true)
+            FROM generate_subscripts(idx.indkey, 1) as k
+            ORDER BY k
+        ) as varchar
+    ) as columns
+FROM   pg_index as idx
+JOIN   pg_class as i
+ON     i.oid = idx.indexrelid
+JOIN   pg_am as am
+ON     i.relam = am.oid
+JOIN   pg_namespace as ns
+ON     ns.oid = i.relnamespace
+AND    ns.nspname = ANY(current_schemas(false))
+ORDER BY idx.indrelid
+"
 }

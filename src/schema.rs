@@ -21,6 +21,7 @@ pub struct TableColumn {
     pub max_chars: Option<i32>,
     pub description: Option<String>,
     pub table_description: Option<String>, // Redundant but easiest way to get it.
+    pub primary_key: bool
 }
 
 /// Table information.
@@ -32,6 +33,9 @@ pub struct Table {
     pub description: Option<String>,
     /// List of fields.
     pub fields: Vec<TableColumn>,
+    /// Is this a full table.
+    pub full: bool,
+
 }
 
 /// Row description.
@@ -54,3 +58,12 @@ pub struct Relation {
 pub type TableName = String;
 pub type FieldName = String;
 //pub type FieldType = String;
+
+/// Index Definition
+pub struct Index {
+    pub table: TableName,
+    pub name: String,
+    pub primary: bool,
+    pub unique: bool,
+    pub fields: Vec<String>,
+}
