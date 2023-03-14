@@ -26,7 +26,6 @@ fn is_primary_key(table: &str, column: &str, indexes: &Vec<Index>) -> bool {
         .any(|idx| idx.table == table && idx.fields.contains(&column.to_string()) && idx.primary)
 }
 
-
 impl Conn {
     // Make a new postgres connection
     pub fn new(opts: &opts::Opts) -> Result<Conn> {
@@ -68,6 +67,8 @@ impl Conn {
         let relations_rows = client.query(relations_query(), &[&self.schema])?;
         let index_rows = client.query(index_query(), &[])?;
 
+        let mut partial_tables: HashMap<String, Vec<String>> = HashMap::new();
+
         let indexes: Vec<_> = index_rows
             .into_iter()
             .filter(|row| {
@@ -90,7 +91,7 @@ impl Conn {
                     .into_iter()
                     .map(|row| {
                         let mut field: TableColumn = row.try_into().unwrap();
-                        field.primary_key = is_primary_key( &name, &field.column, &indexes);
+                        field.primary_key = is_primary_key(&name, &field.column, &indexes);
 
                         let desc = match field.description {
                             Some(desc) => match self.opts.column_description_wrap {
@@ -116,8 +117,7 @@ impl Conn {
                 Table {
                     name,
                     description: desc,
-                    fields,
-                    full: true,
+                    fields
                 }
             })
             .collect();
@@ -129,14 +129,37 @@ impl Conn {
                 relation
             })
             .filter(|relation| {
-                self.include_table(&relation.on_table)
-                    && self.include_table(&relation.to_table)
+                if self.include_table(&relation.on_table)
                     && !self.exclude_table(&relation.on_table)
                     && !self.exclude_table(&relation.to_table)
+                {
+                    if !self.include_table(&relation.to_table) {
+                        match partial_tables.get_mut(&relation.to_table) {
+                            Some(value) => {
+                                if !value.contains(&relation.to_field) {
+                                    value.push(relation.to_field.clone());
+                                }
+                            }
+                            None => {
+                                partial_tables.insert(
+                                    relation.to_table.clone(),
+                                    vec![relation.to_field.clone()],
+                                );
+                            }
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
             })
             .collect();
 
-        Ok(Schema { tables, relations })
+        Ok(Schema {
+            tables,
+            relations,
+            partial_tables,
+        })
     }
 }
 

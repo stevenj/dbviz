@@ -1,4 +1,6 @@
 //! Core entities.
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// All the schema information.
@@ -8,6 +10,8 @@ pub struct Schema {
     pub tables: Vec<Table>,
     /// List of relations in the database.
     pub relations: Vec<Relation>,
+    /// Partial Tables
+    pub partial_tables: HashMap<String, Vec<String>>
 }
 
 /// Table information.
@@ -33,9 +37,6 @@ pub struct Table {
     pub description: Option<String>,
     /// List of fields.
     pub fields: Vec<TableColumn>,
-    /// Is this a full table.
-    pub full: bool,
-
 }
 
 /// Row description.

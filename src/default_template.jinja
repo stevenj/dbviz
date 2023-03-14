@@ -49,8 +49,13 @@
     {%- endif -%}
 {%- endmacro -%}
 
+{%- macro column_name_x(name, pkey) -%}
+    <td port="{{name}}" {{ pkey_bgcolor(pkey) }} align='text'><font>{{name}}</font><br align='left'/></td>
+{%- endmacro -%}
+
+
 {%- macro column_name(field) -%}
-    <td port="{{field.column}}" {{ pkey_bgcolor(field.primary_key) }} align='text'><font>{{field.column}}</font><br align='left'/></td>
+    {{- column_name_x(field.column, field.primary_key) -}}
 {%- endmacro -%}
 
 {%- macro final(field, final=true) -%}
@@ -66,8 +71,6 @@
 {%- macro column_description(field) -%}
     <td {{ final(field,true) }} {{ pkey_bgcolor(field.primary_key) }} align='text'><font {{ theme("field_desc") }} ><i>{{- field.description|trim|escape|replace("\n", "<br align='left'/>") -}}</i><br align="left"/></font></td>
 {%- endmacro -%}
-
-
 
 digraph erd {
 
@@ -150,6 +153,32 @@ digraph erd {
         {% endif %}
     {% endfor %}
 
+    {% for partial in schema.partial_tables %}
+
+    "{{partial}}" [label=<
+        <table border='0' cellborder='1' cellspacing='0'>
+            <tr>
+                <td bgcolor='{{theme("table_heading_bgcolor")}}' port='__title'><font {{theme("table_heading")}}><b>{{partial}}</b></font></td>
+            </tr>
+            <tr>
+                <td><font {{ theme("column_heading") }} ><b>Column</b></font></td>
+            </tr>
+
+            {% for field in schema.partial_tables[partial] %}
+            <tr>
+                {{ column_name_x(field,false) }}
+            </tr>
+            {% endfor %}
+
+            <tr>
+                <td colspan='3' bgcolor="{{theme('table_desc_bgcolor')}}" align='text'><font {{theme("table_description")}}><i>ABRIDGED</i><br align="left"/></font></td>
+            </tr>
+        </table>
+    >];
+
+    {% endfor %}
+
+
     "LEGEND" [label=<
         <table border='0' cellborder='1' cellspacing='0'>
             <tr>
@@ -158,8 +187,8 @@ digraph erd {
                 </td>
             </tr>
             <tr>
-                <td><font {{theme("table_heading")}}><b>Type</b></font></td>
-                <td><font {{theme("table_heading")}}><b>Example</b></font></td>
+                <td><font {{theme("column_heading")}}><b>Type</b></font></td>
+                <td><font {{theme("column_heading")}}><b>Example</b></font></td>
             </tr>
 
             <tr>
